@@ -5,28 +5,34 @@
 import { Image as ImageIcon, Sparkles, Loader2, Download } from 'lucide-react'
 import { ImageCard } from './ImageCard'
 import { PromptResult } from '../utils/gemini'
+import { ProgressInfo } from '../hooks/usePromptGeneration'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Progress } from '@/components/ui/progress'
 
 interface UrlListProps {
     urls: string[]
     prompts: Map<string, PromptResult>
     loading: boolean
+    progress: ProgressInfo
     copiedIndex: number | null
     onRemoveUrl: (index: number) => void
     onGeneratePrompts: () => void
     onCopyPrompt: (prompt: string, index: number) => void
+    onPromptChange?: (url: string, newPrompt: string) => void
 }
 
 export function UrlList({
     urls,
     prompts,
     loading,
+    progress,
     copiedIndex,
     onRemoveUrl,
     onGeneratePrompts,
     onCopyPrompt,
+    onPromptChange,
 }: UrlListProps) {
     // Get all successfully generated prompts (non-empty, no errors)
     const getSuccessfulPrompts = (): string[] => {
@@ -103,7 +109,17 @@ export function UrlList({
                     </div>
                 </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+                {/* Progress Bar */}
+                {loading && (
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Generating prompts...</span>
+                            <span>{progress.current} of {progress.total} images</span>
+                        </div>
+                        <Progress value={progress.percentage} />
+                    </div>
+                )}
                 <ScrollArea className="w-full whitespace-nowrap">
                     <div className="flex gap-4 pb-4">
                         {urls.map((url, index) => (
@@ -114,6 +130,7 @@ export function UrlList({
                                     promptResult={prompts.get(url)}
                                     onRemove={() => onRemoveUrl(index)}
                                     onCopyPrompt={onCopyPrompt}
+                                    onPromptChange={onPromptChange}
                                     isCopied={copiedIndex === index}
                                 />
                             </div>

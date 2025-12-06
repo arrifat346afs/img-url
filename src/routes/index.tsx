@@ -30,7 +30,7 @@ function App() {
     setError,
     clearError,
   } = useUrls()
-  const { prompts, loading, copiedIndex, generatePrompts, copyPrompt, removePrompt } =
+  const { prompts, loading, progress, copiedIndex, generatePrompts, copyPrompt, removePrompt, updatePrompt } =
     usePromptGeneration()
 
   // Local UI state
@@ -134,10 +134,12 @@ function App() {
               urls={urls}
               prompts={prompts}
               loading={loading}
+              progress={progress}
               copiedIndex={copiedIndex}
               onRemoveUrl={handleRemoveUrl}
               onGeneratePrompts={handleGeneratePrompts}
               onCopyPrompt={copyPrompt}
+              onPromptChange={updatePrompt}
             />
           ) : (
             <EmptyState />
