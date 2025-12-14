@@ -252,23 +252,38 @@ async function withRetry<T>(
 /**
  * Fetch available models from Google AI
  */
-export async function fetchAvailableModels(): Promise<string[]> {
+export async function fetchAvailableModels(apiKey?: string): Promise<string[]> {
+    const knownModels = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-8b',
+        'gemini-1.5-pro',
+        'gemini-pro',
+    ]
+
+    if (!apiKey) {
+        return knownModels
+    }
+
     try {
-        // Note: listModels may not be available in all SDK versions
-        // Fallback to a predefined list of known models
-        const knownModels = [
-            'gemini-2.0-flash-lite',
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-8b',
-            'gemini-1.5-pro',
-            'gemini-pro',
-        ]
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+        if (!response.ok) {
+            throw new Error(`Failed to fetch models: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (data && data.models) {
+            // Filter for models that generate content (exclude embedding models etc if possible, but name filtering is safer)
+            // Typically we want 'models/gemini...'
+            return data.models
+                .map((m: any) => m.name.replace('models/', ''))
+                .filter((name: string) => name.includes('gemini'))
+        }
 
         return knownModels
     } catch (error) {
         console.error('Failed to fetch models:', error)
         // Return default models on error
-        return ['gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        return knownModels
     }
 }
 
@@ -307,6 +322,8 @@ export interface GeneratePromptOptions {
     useRetry?: boolean
     /** Callback when a retry occurs */
     onRetry?: (attempt: number, delayMs: number) => void
+    /** Delay between sequential requests in milliseconds */
+    delayBetweenRequestsMs?: number
 }
 
 /**
@@ -347,7 +364,28 @@ Format the response as a single, detailed prompt that starts with the main subje
 
     const result = await generativeModel.generateContent([promptText, imagePart])
     console.log('Result:', result)
-    return result.response.text()
+    let content = result.response.text()
+
+    // Clean up the response (consistent with OpenRouter implementation)
+    content = content
+        .replace(/^###\s*/gm, '') // Remove headers
+        .replace(/\*\*/g, '')      // Remove bold
+        .replace(/^["']|["']$/g, '') // Remove wrapping quotes
+        .trim()
+
+    // Remove conversational prefixes
+    const prefixes = ["Prompt:", "Here is the prompt", "Here is a"]
+    for (const prefix of prefixes) {
+        if (content.toLowerCase().startsWith(prefix.toLowerCase())) {
+            const parts = content.split(/[:\n]/)
+            if (parts.length > 1) {
+                content = parts.slice(1).join(' ').trim()
+                break
+            }
+        }
+    }
+
+    return content
 }
 
 /**

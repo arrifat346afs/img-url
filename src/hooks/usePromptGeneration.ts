@@ -62,7 +62,13 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
         urls: string[],
         apiKey: string,
         model: string,
-        promptOptions?: GeneratePromptOptions
+        promptOptions?: GeneratePromptOptions,
+        generatorFn: (
+            url: string,
+            apiKey: string,
+            model: string,
+            options?: GeneratePromptOptions
+        ) => Promise<string> = generatePromptForImage
     ) => {
         setLoading(true)
         const total = urls.length
@@ -101,20 +107,26 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
             })
         }
 
-        const promises = urls.map(async (url) => {
+        // Sequential execution loop
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i]
+
+            // Check if cancelled (if we implemented a cancel flag, but for now just process)
+            // Ideally we'd have an abort signal check here.
+
             try {
-                // Update status to generating when we start processing (or queuing)
+                // Update status to generating
                 setPrompts((prev) => {
                     const newMap = new Map(prev)
                     const current = newMap.get(url)
-                    // Only update if not already completed (in case of re-run)
+                    // Only update if not already completed
                     if (current?.status !== 'completed') {
                         newMap.set(url, { ...current!, url, status: 'generating', error: undefined })
                     }
                     return newMap
                 })
 
-                const prompt = await generatePromptForImage(url, apiKey, model, {
+                const prompt = await generatorFn(url, apiKey, model, {
                     ...mergedOptions,
                     onRetry: (_attempt, delayMs) => {
                         setPrompts((prev) => {
@@ -142,6 +154,7 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
                     })
                     return newMap
                 })
+
             } catch (err) {
                 setPrompts((prev) => {
                     const newMap = new Map(prev)
@@ -156,9 +169,14 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
             } finally {
                 updateProgress()
             }
-        })
 
-        await Promise.all(promises)
+            // Wait before next request if configured and not the last item
+            if (i < urls.length - 1 && mergedOptions.delayBetweenRequestsMs && mergedOptions.delayBetweenRequestsMs > 0) {
+                // console.log(`Waiting ${mergedOptions.delayBetweenRequestsMs}ms before next request...`)
+                await new Promise(resolve => setTimeout(resolve, mergedOptions.delayBetweenRequestsMs))
+            }
+        }
+
         setLoading(false)
     }
 
