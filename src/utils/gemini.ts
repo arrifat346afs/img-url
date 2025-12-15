@@ -272,11 +272,10 @@ export async function fetchAvailableModels(apiKey?: string): Promise<string[]> {
 
         const data = await response.json()
         if (data && data.models) {
-            // Filter for models that generate content (exclude embedding models etc if possible, but name filtering is safer)
-            // Typically we want 'models/gemini...'
+            // Filter for models that generate content (exclude embedding models)
             return data.models
                 .map((m: any) => m.name.replace('models/', ''))
-                .filter((name: string) => name.includes('gemini'))
+                .filter((name: string) => !name.includes('embedding'))
         }
 
         return knownModels
@@ -360,7 +359,12 @@ Include the following in your prompt:
 9. Specific details about objects, people, or elements
 10. Keywords for style modifiers
 
-Format the response as a single, detailed prompt that starts with the main subject and flows naturally. Make it ready to use directly in an AI image generator.`
+CRITICAL OUTPUT INSTRUCTIONS:
+- Return ONLY the prompt text.
+- Do NOT use markdown (no bold **, no italics *, no headers ###).
+- Do NOT include any introductory text like "Here is the prompt" or "Sure".
+- Do NOT include any concluding text.
+- Just the raw prompt string.`
 
     const result = await generativeModel.generateContent([promptText, imagePart])
     console.log('Result:', result)

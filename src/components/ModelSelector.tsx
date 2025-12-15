@@ -3,13 +3,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+
 import {
     Command,
     CommandEmpty,
@@ -128,46 +122,55 @@ export function ModelSelector({
         <div className={cn("space-y-2", className)}>
             {showLabel && <label className="text-sm font-medium">Model</label>}
 
-            {provider === 'google' ? (
-                <Select value={selectedModel} onValueChange={onModelChange} disabled={loading}>
-                    <SelectTrigger>
-                        <SelectValue placeholder={loading ? "Loading models..." : "Select a model"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {loading && <div className="p-2 text-center text-sm text-muted-foreground">Loading...</div>}
-                        {googleModels.map(model => (
-                            <SelectItem key={model} value={model}>{model}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            ) : (
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={open}
-                            className="w-full justify-between font-normal"
-                            disabled={loading}
-                        >
-                            {loading ? "Loading models..." : (
-                                selectedModel
-                                    ? openRouterModels.find((model) => model.id === selectedModel)?.name || selectedModel
-                                    : "Select model..."
-                            )}
-                            {loading ? <Loader2 className="ml-2 h-4 w-4 animate-spin shrink-0 opacity-50" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
-                        <Command>
-                            <CommandInput placeholder="Search models..." />
-                            <CommandList>
-                                <CommandEmpty>No model found.</CommandEmpty>
-                                <CommandGroup>
-                                    {openRouterModels.map((model) => (
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between font-normal"
+                        disabled={loading}
+                    >
+                        {loading ? "Loading models..." : (
+                            selectedModel
+                                ? (provider === 'google'
+                                    ? googleModels.find(m => m === selectedModel)
+                                    : openRouterModels.find((model) => model.id === selectedModel)?.name) || selectedModel
+                                : "Select model..."
+                        )}
+                        {loading ? <Loader2 className="ml-2 h-4 w-4 animate-spin shrink-0 opacity-50" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                        <CommandInput placeholder="Search models..." />
+                        <CommandList>
+                            <CommandEmpty>No model found.</CommandEmpty>
+                            <CommandGroup>
+                                {provider === 'google' ? (
+                                    googleModels.map((model) => (
+                                        <CommandItem
+                                            key={model}
+                                            value={model}
+                                            onSelect={() => {
+                                                onModelChange(model)
+                                                setOpen(false)
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    selectedModel === model ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            {model}
+                                        </CommandItem>
+                                    ))
+                                ) : (
+                                    openRouterModels.map((model) => (
                                         <CommandItem
                                             key={model.id}
-                                            value={model.name} // Search by name
+                                            value={model.name}
                                             onSelect={() => {
                                                 onModelChange(model.id)
                                                 onIsFreeChange?.(isFree(model))
@@ -185,13 +188,13 @@ export function ModelSelector({
                                                 <span className="ml-2 text-xs text-green-500">(Free)</span>
                                             )}
                                         </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
-            )}
+                                    ))
+                                )}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
         </div>
     )
 }
