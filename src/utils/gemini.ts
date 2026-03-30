@@ -345,19 +345,18 @@ async function generatePromptInternal(
         },
     }
 
-    const promptText = `Analyze this image in detail and create a comprehensive prompt that could be used to generate a similar image using AI image generation tools like Midjourney, DALL-E, or Stable Diffusion.
+    const promptText = `Analyze this image and create an effective prompt for AI image generation tools like Midjourney, DALL-E, or Stable Diffusion.
 
-Include the following in your prompt:
-1. Main subject and composition
-2. Art style and medium (e.g., photography, digital art, painting, 3D render)
-3. Lighting and atmosphere
-4. Color palette and mood
-5. Camera angle and perspective
-6. Technical details (depth of field, resolution quality)
-7. Any text or graphic elements
-8. Background and environment
-9. Specific details about objects, people, or elements
-10. Keywords for style modifiers
+Focus on these key elements (keep descriptions concise):
+1. Subject - who or what is the main focus
+2. Art style/medium - photography, illustration, digital art, 3D render, etc.
+3. Lighting - key light source and mood it creates
+4. Colors - dominant color palette
+5. Composition - camera angle, framing, perspective
+6. Atmosphere/mood - emotional tone
+7. Key details - only the most important visual elements that define the image
+
+Then add relevant style keywords at the end as comma-separated modifiers (e.g., --ar 16:9, cinematic lighting, soft focus, detailed, vibrant colors).
 
 CRITICAL OUTPUT INSTRUCTIONS:
 - Return ONLY the prompt text.
