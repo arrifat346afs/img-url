@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // Components
 import { ApiKeyManager, Provider } from '../components/ApiKeyManager'
 import { ModelSelector } from '../components/ModelSelector'
 import { UrlInput } from '../components/UrlInput'
 import { UrlList } from '../components/UrlList'
+import { StoredLinksManager } from '../components/StoredLinksManager'
 import { EmptyState } from '../components/EmptyState'
 
 // Hooks
@@ -28,20 +29,29 @@ function App() {
   const {
     googleApiKey,
     openRouterApiKey,
+    googleAiModel,
+    openRouterModel,
     saveGoogleApiKey,
-    saveOpenRouterApiKey
+    saveOpenRouterApiKey,
+    saveGoogleAiModel,
+    saveOpenRouterModel
   } = useApiKey()
 
   const {
     urls,
+    storedUrls,
     addUrl,
     removeUrl,
     pasteFromClipboard,
     setError,
     clearError,
+    saveUrlsToStorage,
+    clearAllStoredUrls,
+    removeStoredUrl,
+    loadUrlsFromStorage,
   } = useUrls()
 
-  const { prompts, loading, progress, copiedIndex, generatePrompts: generatePromptsGoogle, copyPrompt, removePrompt, updatePrompt } =
+  const { prompts, loading, progress, copiedIndex, generatePrompts: generatePromptsGoogle, generateSinglePrompt, copyPrompt, removePrompt, updatePrompt } =
     usePromptGeneration()
 
   // Local UI state
@@ -50,6 +60,11 @@ function App() {
   const [selectedModel, setSelectedModel] = useState('')
   const [isFreeModel, setIsFreeModel] = useState(false)
   const [delaySeconds, setDelaySeconds] = useState(2)
+
+  // Update selected model when provider changes to use persisted value
+  useEffect(() => {
+    setSelectedModel(provider === 'google' ? googleAiModel : openRouterModel)
+  }, [provider, googleAiModel, openRouterModel])
 
   // Handlers
   const handleAddUrl = () => {
@@ -62,6 +77,16 @@ function App() {
     const urlToRemove = urls[index]
     removeUrl(index)
     removePrompt(urlToRemove)
+  }
+
+  const handleSaveUrls = () => {
+    const success = saveUrlsToStorage()
+    if (!success) {
+      setError('No URLs to save')
+      return false
+    }
+    setError('')
+    return true
   }
 
   // We need to implement generation logic that switches based on provider.
@@ -79,6 +104,49 @@ function App() {
   // The usePromptGeneration hook likely wraps the API call. 
   // I should update usePromptGeneration to accept a "generator function" or "provider" argument.
   // But since I am in index.tsx, let's look at what I have.
+
+  const handleProviderChange = (newProvider: Provider) => {
+    setProvider(newProvider)
+    // Switch to the persisted model for the new provider
+    const newModel = newProvider === 'google' ? googleAiModel : openRouterModel
+    setSelectedModel(newModel)
+  }
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model)
+    // Save model selection to localStorage based on current provider
+    if (provider === 'google') {
+      saveGoogleAiModel(model)
+    } else {
+      saveOpenRouterModel(model)
+    }
+  }
+
+  const handleGenerateSinglePrompt = async (url: string) => {
+    const apiKey = provider === 'google' ? googleApiKey : openRouterApiKey
+
+    if (!apiKey) {
+      setError(`Please set your ${provider === 'google' ? 'Google AI' : 'OpenRouter'} API key first`)
+      return
+    }
+
+    clearError()
+
+    // Pass the appropriate generator function based on provider
+    const generatorFn = provider === 'google' ? undefined : generateOpenRouterPrompt
+
+    // Apply rate limiting for free OpenRouter models
+    const promptOptions = {
+      rateLimitConfig: (provider === 'openrouter' && isFreeModel) ? FREE_MODEL_RATE_LIMIT : undefined,
+      delayBetweenRequestsMs: 0 // No delay for single prompt generation
+    }
+
+    try {
+      await generateSinglePrompt(url, apiKey, selectedModel, promptOptions, generatorFn)
+    } catch (err) {
+      console.error('Failed to generate single prompt:', err)
+    }
+  }
 
   const handleGeneratePrompts = async () => {
     const apiKey = provider === 'google' ? googleApiKey : openRouterApiKey
@@ -125,7 +193,7 @@ function App() {
             <CardContent className="space-y-4">
               <ApiKeyManager
                 provider={provider}
-                onProviderChange={setProvider}
+                onProviderChange={handleProviderChange}
                 googleApiKey={googleApiKey}
                 openRouterApiKey={openRouterApiKey}
                 onSaveGoogleKey={saveGoogleApiKey}
@@ -163,12 +231,14 @@ function App() {
                 onInputChange={setInputUrl}
                 onAddUrl={handleAddUrl}
                 onPasteFromClipboard={pasteFromClipboard}
+                onSaveUrls={handleSaveUrls}
+                currentUrlsCount={urls.length}
                 modelSelector={
                   <ModelSelector
                     provider={provider}
                     apiKey={provider === 'google' ? googleApiKey : openRouterApiKey}
                     selectedModel={selectedModel}
-                    onModelChange={setSelectedModel}
+                    onModelChange={handleModelChange}
                     onIsFreeChange={setIsFreeModel}
                     showLabel={false}
                     className="w-auto"
@@ -188,12 +258,21 @@ function App() {
               copiedIndex={copiedIndex} // Check if this exists in hook return
               onRemoveUrl={handleRemoveUrl} // Check signature
               onGeneratePrompts={handleGeneratePrompts}
+              onGenerateSinglePrompt={handleGenerateSinglePrompt}
               onCopyPrompt={copyPrompt} // Need to check exports
               onPromptChange={updatePrompt} // Need to check exports
             />
           ) : (
             <EmptyState />
           )}
+
+          {/* Stored Links Manager */}
+          <StoredLinksManager
+            storedUrls={storedUrls}
+            onLoadUrls={loadUrlsFromStorage}
+            onRemoveStoredUrl={removeStoredUrl}
+            onClearAllStoredUrls={clearAllStoredUrls}
+          />
         </div>
       </div>
     </div>

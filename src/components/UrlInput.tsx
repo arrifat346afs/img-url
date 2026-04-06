@@ -2,7 +2,7 @@
  * URL Input Component
  */
 
-import { Link2, Clipboard } from 'lucide-react'
+import { Link2, Clipboard, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -11,6 +11,8 @@ interface UrlInputProps {
     onInputChange: (value: string) => void
     onAddUrl: () => void
     onPasteFromClipboard: () => void
+    onSaveUrls?: () => boolean
+    currentUrlsCount?: number
     modelSelector?: React.ReactNode
 }
 
@@ -19,6 +21,8 @@ export function UrlInput({
     onInputChange,
     onAddUrl,
     onPasteFromClipboard,
+    onSaveUrls,
+    currentUrlsCount = 0,
     modelSelector,
 }: UrlInputProps) {
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -45,14 +49,26 @@ export function UrlInput({
                 </Button>
             </div>
 
-            <Button
-                variant="outline"
-                onClick={onPasteFromClipboard}
-                className="w-full"
-            >
-                <Clipboard className="w-4 h-4 mr-2" />
-                Paste from Clipboard
-            </Button>
+            <div className="flex gap-2">
+                <Button
+                    variant="outline"
+                    onClick={onPasteFromClipboard}
+                    className="flex-1"
+                >
+                    <Clipboard className="w-4 h-4 mr-2" />
+                    Paste from Clipboard
+                </Button>
+                {onSaveUrls && currentUrlsCount > 0 && (
+                    <Button
+                        variant="outline"
+                        onClick={onSaveUrls}
+                        className="flex-1"
+                    >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save URLs ({currentUrlsCount})
+                    </Button>
+                )}
+            </div>
         </div>
     )
 }

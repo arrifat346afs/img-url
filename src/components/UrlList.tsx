@@ -19,6 +19,7 @@ interface UrlListProps {
     copiedIndex: number | null
     onRemoveUrl: (index: number) => void
     onGeneratePrompts: () => void
+    onGenerateSinglePrompt: (url: string) => Promise<void>
     onCopyPrompt: (prompt: string, index: number) => void
     onPromptChange?: (url: string, newPrompt: string) => void
 }
@@ -31,6 +32,7 @@ export function UrlList({
     copiedIndex,
     onRemoveUrl,
     onGeneratePrompts,
+    onGenerateSinglePrompt,
     onCopyPrompt,
     onPromptChange,
 }: UrlListProps) {
@@ -129,6 +131,7 @@ export function UrlList({
                                     index={index}
                                     promptResult={prompts.get(url)}
                                     onRemove={() => onRemoveUrl(index)}
+                                    onGeneratePrompt={onGenerateSinglePrompt}
                                     onCopyPrompt={onCopyPrompt}
                                     onPromptChange={onPromptChange}
                                     isCopied={copiedIndex === index}

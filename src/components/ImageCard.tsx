@@ -2,7 +2,7 @@
  * Individual Image Card Component
  */
 
-import { Trash2, Copy, Check, Loader2, Clock, AlertTriangle } from 'lucide-react'
+import { Trash2, Copy, Check, Loader2, Clock, AlertTriangle, Sparkles } from 'lucide-react'
 import { PromptResult } from '../utils/gemini'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,6 +13,7 @@ interface ImageCardProps {
     index: number
     promptResult?: PromptResult
     onRemove: () => void
+    onGeneratePrompt: (url: string) => Promise<void>
     onCopyPrompt: (prompt: string, index: number) => void
     onPromptChange?: (url: string, newPrompt: string) => void
     isCopied: boolean
@@ -23,6 +24,7 @@ export function ImageCard({
     index,
     promptResult,
     onRemove,
+    onGeneratePrompt,
     onCopyPrompt,
     onPromptChange,
     isCopied,
@@ -119,14 +121,28 @@ export function ImageCard({
                                 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23334155" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="14"%3EImage Error%3C/text%3E%3C/svg%3E'
                         }}
                     />
-                    <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={onRemove}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => onGeneratePrompt(url)}
+                            disabled={promptResult?.status === 'generating' || promptResult?.status === 'pending'}
+                            title="Generate prompt for this image"
+                        >
+                            {promptResult?.status === 'generating' ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Sparkles className="w-4 h-4" />
+                            )}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={onRemove}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="p-4 space-y-3">

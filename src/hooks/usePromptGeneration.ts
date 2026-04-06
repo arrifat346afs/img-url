@@ -58,6 +58,82 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
         clearRequestQueue()
     }
 
+    const generateSinglePrompt = async (
+        url: string,
+        apiKey: string,
+        model: string,
+        promptOptions?: GeneratePromptOptions,
+        generatorFn: (
+            url: string,
+            apiKey: string,
+            model: string,
+            options?: GeneratePromptOptions
+        ) => Promise<string> = generatePromptForImage
+    ) => {
+        // Set this specific prompt to generating status
+        setPrompts((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(url, {
+                url,
+                prompt: '',
+                status: 'generating',
+                error: undefined
+            })
+            return newMap
+        })
+
+        try {
+            // Merge provided options with current rate limit config
+            const mergedOptions: GeneratePromptOptions = {
+                rateLimitConfig,
+                useRateLimiting: true,
+                useRetry: true,
+                ...promptOptions,
+            }
+
+            const prompt = await generatorFn(url, apiKey, model, {
+                ...mergedOptions,
+                onRetry: (_attempt, delayMs) => {
+                    setPrompts((prev) => {
+                        const newMap = new Map(prev)
+                        newMap.set(url, {
+                            url,
+                            prompt: '',
+                            status: 'retrying',
+                            error: `Rate limit hit. Retrying in ${Math.round(delayMs / 1000)}s...`
+                        })
+                        return newMap
+                    })
+                }
+            })
+
+            setPrompts((prev) => {
+                const newMap = new Map(prev)
+                newMap.set(url, {
+                    url,
+                    prompt,
+                    status: 'completed',
+                    error: undefined
+                })
+                return newMap
+            })
+
+            return prompt
+        } catch (err) {
+            setPrompts((prev) => {
+                const newMap = new Map(prev)
+                newMap.set(url, {
+                    url,
+                    prompt: '',
+                    status: 'error',
+                    error: err instanceof Error ? err.message : 'Failed to generate prompt',
+                })
+                return newMap
+            })
+            throw err
+        }
+    }
+
     const generatePrompts = async (
         urls: string[],
         apiKey: string,
@@ -218,6 +294,7 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
         copiedIndex,
         rateLimitConfig,
         generatePrompts,
+        generateSinglePrompt,
         copyPrompt,
         clearPrompts,
         removePrompt,
