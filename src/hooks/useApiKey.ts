@@ -8,12 +8,16 @@ const GOOGLE_API_KEY_STORAGE_KEY = 'gemini_api_key'
 const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key'
 const GOOGLE_AI_MODEL_STORAGE_KEY = 'google_ai_model'
 const OPENROUTER_MODEL_STORAGE_KEY = 'openrouter_model'
+const LMSTUDIO_BASE_URL_STORAGE_KEY = 'lmstudio_base_url'
+const LMSTUDIO_MODEL_STORAGE_KEY = 'lmstudio_model'
 
 export function useApiKey() {
     const [googleApiKey, setGoogleApiKey] = useState('')
     const [openRouterApiKey, setOpenRouterApiKey] = useState('')
     const [googleAiModel, setGoogleAiModel] = useState('')
     const [openRouterModel, setOpenRouterModel] = useState('')
+    const [lmstudioBaseUrl, setLmstudioBaseUrl] = useState('http://localhost:1234/v1')
+    const [lmstudioModel, setLmstudioModel] = useState('')
 
     // Load API keys and models from localStorage on mount
     useEffect(() => {
@@ -21,11 +25,15 @@ export function useApiKey() {
         const savedOpenRouterKey = localStorage.getItem(OPENROUTER_API_KEY_STORAGE_KEY)
         const savedGoogleModel = localStorage.getItem(GOOGLE_AI_MODEL_STORAGE_KEY)
         const savedOpenRouterModel = localStorage.getItem(OPENROUTER_MODEL_STORAGE_KEY)
+        const savedLmstudioBaseUrl = localStorage.getItem(LMSTUDIO_BASE_URL_STORAGE_KEY)
+        const savedLmstudioModel = localStorage.getItem(LMSTUDIO_MODEL_STORAGE_KEY)
 
         if (savedGoogleKey) setGoogleApiKey(savedGoogleKey)
         if (savedOpenRouterKey) setOpenRouterApiKey(savedOpenRouterKey)
         if (savedGoogleModel) setGoogleAiModel(savedGoogleModel)
         if (savedOpenRouterModel) setOpenRouterModel(savedOpenRouterModel)
+        if (savedLmstudioBaseUrl) setLmstudioBaseUrl(savedLmstudioBaseUrl)
+        if (savedLmstudioModel) setLmstudioModel(savedLmstudioModel)
     }, [])
 
     // Save Google API key
@@ -60,14 +68,31 @@ export function useApiKey() {
         setOpenRouterModel(model.trim())
     }
 
+    // Save LM Studio base URL
+    const saveLmstudioBaseUrl = (url: string) => {
+        const trimmed = url.trim()
+        localStorage.setItem(LMSTUDIO_BASE_URL_STORAGE_KEY, trimmed || 'http://localhost:1234/v1')
+        setLmstudioBaseUrl(trimmed || 'http://localhost:1234/v1')
+    }
+
+    // Save LM Studio model
+    const saveLmstudioModel = (model: string) => {
+        localStorage.setItem(LMSTUDIO_MODEL_STORAGE_KEY, model.trim())
+        setLmstudioModel(model.trim())
+    }
+
     return {
         googleApiKey,
         openRouterApiKey,
         googleAiModel,
         openRouterModel,
+        lmstudioBaseUrl,
+        lmstudioModel,
         saveGoogleApiKey,
         saveOpenRouterApiKey,
         saveGoogleAiModel,
         saveOpenRouterModel,
+        saveLmstudioBaseUrl,
+        saveLmstudioModel,
     }
 }

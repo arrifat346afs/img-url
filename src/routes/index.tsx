@@ -16,7 +16,8 @@ import { usePromptGeneration } from '../hooks/usePromptGeneration'
 
 // Utils
 import { generateOpenRouterPrompt, FREE_MODEL_RATE_LIMIT } from '../utils/openRouter'
-// import { generatePromptsForImages } from '../utils/gemini'
+import { generateLMStudioPrompt, LMSTUDIO_RATE_LIMIT, DEFAULT_LMSTUDIO_BASE_URL } from '../utils/lmStudio'
+import { generatePromptForImage, GeneratePromptOptions, RateLimitConfig } from '../utils/gemini'
 
 // shadcn/ui components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,16 +26,19 @@ import { ThemeToggle } from '@/components/mode-toggle'
 export const Route = createFileRoute('/')({ component: App })
 
 function App() {
-  // State management via custom hooks
   const {
     googleApiKey,
     openRouterApiKey,
     googleAiModel,
     openRouterModel,
+    lmstudioBaseUrl,
+    lmstudioModel,
     saveGoogleApiKey,
     saveOpenRouterApiKey,
     saveGoogleAiModel,
-    saveOpenRouterModel
+    saveOpenRouterModel,
+    saveLmstudioBaseUrl,
+    saveLmstudioModel
   } = useApiKey()
 
   const {
@@ -54,19 +58,22 @@ function App() {
   const { prompts, loading, progress, copiedIndex, generatePrompts: generatePromptsGoogle, generateSinglePrompt, copyPrompt, removePrompt, updatePrompt } =
     usePromptGeneration()
 
-  // Local UI state
   const [provider, setProvider] = useState<Provider>('google')
   const [inputUrl, setInputUrl] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
   const [isFreeModel, setIsFreeModel] = useState(false)
   const [delaySeconds, setDelaySeconds] = useState(2)
 
-  // Update selected model when provider changes to use persisted value
   useEffect(() => {
-    setSelectedModel(provider === 'google' ? googleAiModel : openRouterModel)
-  }, [provider, googleAiModel, openRouterModel])
+    if (provider === 'google') {
+      setSelectedModel(googleAiModel)
+    } else if (provider === 'openrouter') {
+      setSelectedModel(openRouterModel)
+    } else {
+      setSelectedModel(lmstudioModel)
+    }
+  }, [provider, googleAiModel, openRouterModel, lmstudioModel])
 
-  // Handlers
   const handleAddUrl = () => {
     if (addUrl(inputUrl)) {
       setInputUrl('')
@@ -89,57 +96,49 @@ function App() {
     return true
   }
 
-  // We need to implement generation logic that switches based on provider.
-  // The existing usePromptGeneration hook is tied to Google Gemini. 
-  // We can either refactor the hook or manually handle generation here for OpenRouter, 
-  // reusing the state setters from the hook (if exposed, which I need to check).
-  // I only exposed generatePrompts, copyPrompt, removePrompt, updatePrompt.
-  // I should probably check usePromptGeneration.ts to see if I can make it generic or if I should just use its state.
-  // For now, let's assume I can't easily change the hook internals without reading it, 
-  // so I will try to use a custom generation flow here if provider is OpenRouter, 
-  // OR update the hook in a separate step if strictly needed. 
-  // Wait, I see "generatePrompts" in the imports. 
-
-  // Actually, simpler approach:
-  // The usePromptGeneration hook likely wraps the API call. 
-  // I should update usePromptGeneration to accept a "generator function" or "provider" argument.
-  // But since I am in index.tsx, let's look at what I have.
-
   const handleProviderChange = (newProvider: Provider) => {
     setProvider(newProvider)
-    // Switch to the persisted model for the new provider
-    const newModel = newProvider === 'google' ? googleAiModel : openRouterModel
+    const newModel = newProvider === 'google' ? googleAiModel : newProvider === 'openrouter' ? openRouterModel : lmstudioModel
     setSelectedModel(newModel)
   }
 
   const handleModelChange = (model: string) => {
     setSelectedModel(model)
-    // Save model selection to localStorage based on current provider
     if (provider === 'google') {
       saveGoogleAiModel(model)
-    } else {
+    } else if (provider === 'openrouter') {
       saveOpenRouterModel(model)
+    } else {
+      saveLmstudioModel(model)
     }
   }
 
   const handleGenerateSinglePrompt = async (url: string) => {
-    const apiKey = provider === 'google' ? googleApiKey : openRouterApiKey
+    let apiKey = ''
+    let generatorFn: ((url: string, apiKey: string, model: string, options?: GeneratePromptOptions) => Promise<string>) | undefined
+    let promptOptions: { rateLimitConfig?: RateLimitConfig; delayBetweenRequestsMs: number } = { delayBetweenRequestsMs: 0 }
 
-    if (!apiKey) {
-      setError(`Please set your ${provider === 'google' ? 'Google AI' : 'OpenRouter'} API key first`)
-      return
+    if (provider === 'google') {
+      apiKey = googleApiKey
+      if (!apiKey) {
+        setError('Please set your Google AI API key first')
+        return
+      }
+      generatorFn = undefined
+    } else if (provider === 'openrouter') {
+      apiKey = openRouterApiKey
+      if (!apiKey) {
+        setError('Please set your OpenRouter API key first')
+        return
+      }
+      generatorFn = generateOpenRouterPrompt
+      promptOptions.rateLimitConfig = isFreeModel ? FREE_MODEL_RATE_LIMIT : undefined
+    } else {
+      generatorFn = (url, _apiKey, model, opts) => generateLMStudioPrompt(url, _apiKey, model, opts, lmstudioBaseUrl || DEFAULT_LMSTUDIO_BASE_URL)
+      promptOptions.rateLimitConfig = LMSTUDIO_RATE_LIMIT
     }
 
     clearError()
-
-    // Pass the appropriate generator function based on provider
-    const generatorFn = provider === 'google' ? undefined : generateOpenRouterPrompt
-
-    // Apply rate limiting for free OpenRouter models
-    const promptOptions = {
-      rateLimitConfig: (provider === 'openrouter' && isFreeModel) ? FREE_MODEL_RATE_LIMIT : undefined,
-      delayBetweenRequestsMs: 0 // No delay for single prompt generation
-    }
 
     try {
       await generateSinglePrompt(url, apiKey, selectedModel, promptOptions, generatorFn)
@@ -149,11 +148,28 @@ function App() {
   }
 
   const handleGeneratePrompts = async () => {
-    const apiKey = provider === 'google' ? googleApiKey : openRouterApiKey
+    let apiKey = ''
+    let generatorFn: ((url: string, apiKey: string, model: string, options?: GeneratePromptOptions) => Promise<string>) | undefined
+    let promptOptions: { rateLimitConfig?: RateLimitConfig; delayBetweenRequestsMs: number } = { delayBetweenRequestsMs: 0 }
 
-    if (!apiKey) {
-      setError(`Please set your ${provider === 'google' ? 'Google AI' : 'OpenRouter'} API key first`)
-      return
+    if (provider === 'google') {
+      apiKey = googleApiKey
+      if (!apiKey) {
+        setError('Please set your Google AI API key first')
+        return
+      }
+      generatorFn = undefined
+    } else if (provider === 'openrouter') {
+      apiKey = openRouterApiKey
+      if (!apiKey) {
+        setError('Please set your OpenRouter API key first')
+        return
+      }
+      generatorFn = generateOpenRouterPrompt
+      promptOptions.rateLimitConfig = isFreeModel ? FREE_MODEL_RATE_LIMIT : undefined
+    } else {
+      generatorFn = (url, _apiKey, model, opts) => generateLMStudioPrompt(url, _apiKey, model, opts, lmstudioBaseUrl || DEFAULT_LMSTUDIO_BASE_URL)
+      promptOptions.rateLimitConfig = LMSTUDIO_RATE_LIMIT
     }
 
     if (urls.length === 0) {
@@ -162,18 +178,8 @@ function App() {
     }
 
     clearError()
+    promptOptions.delayBetweenRequestsMs = delaySeconds * 1000
 
-    // Pass the appropriate generator function based on provider
-    const generatorFn = provider === 'google' ? undefined : generateOpenRouterPrompt
-
-    // Apply rate limiting for free OpenRouter models
-    const promptOptions = {
-      rateLimitConfig: (provider === 'openrouter' && isFreeModel) ? FREE_MODEL_RATE_LIMIT : undefined,
-      delayBetweenRequestsMs: delaySeconds * 1000
-    } // simplify logic
-
-    // Call the generation hook with the selected generator
-    // Note: generatePromptsGoogle is just the renamed function from usePromptGeneration
     await generatePromptsGoogle(urls, apiKey, selectedModel, promptOptions, generatorFn)
   }
 
@@ -182,7 +188,6 @@ function App() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <ThemeToggle />
         <div className="space-y-6">
-          {/* API Key Manager */}
           <Card>
             <CardHeader>
               <CardTitle>API Configuration</CardTitle>
@@ -196,8 +201,10 @@ function App() {
                 onProviderChange={handleProviderChange}
                 googleApiKey={googleApiKey}
                 openRouterApiKey={openRouterApiKey}
+                lmstudioBaseUrl={lmstudioBaseUrl}
                 onSaveGoogleKey={saveGoogleApiKey}
                 onSaveOpenRouterKey={saveOpenRouterApiKey}
+                onSaveLmstudioBaseUrl={saveLmstudioBaseUrl}
               />
 
               <div className="pt-4 border-t">
@@ -217,7 +224,6 @@ function App() {
             </CardContent>
           </Card>
 
-          {/* URL Input */}
           <Card>
             <CardHeader>
               <CardTitle>Image URLs</CardTitle>
@@ -237,6 +243,7 @@ function App() {
                   <ModelSelector
                     provider={provider}
                     apiKey={provider === 'google' ? googleApiKey : openRouterApiKey}
+                    baseUrl={lmstudioBaseUrl}
                     selectedModel={selectedModel}
                     onModelChange={handleModelChange}
                     onIsFreeChange={setIsFreeModel}
@@ -248,25 +255,23 @@ function App() {
             </CardContent>
           </Card>
 
-          {/* URL List or Empty State */}
           {urls.length > 0 ? (
             <UrlList
               urls={urls}
               prompts={prompts}
               loading={loading}
               progress={progress}
-              copiedIndex={copiedIndex} // Check if this exists in hook return
-              onRemoveUrl={handleRemoveUrl} // Check signature
+              copiedIndex={copiedIndex}
+              onRemoveUrl={handleRemoveUrl}
               onGeneratePrompts={handleGeneratePrompts}
               onGenerateSinglePrompt={handleGenerateSinglePrompt}
-              onCopyPrompt={copyPrompt} // Need to check exports
-              onPromptChange={updatePrompt} // Need to check exports
+              onCopyPrompt={copyPrompt}
+              onPromptChange={updatePrompt}
             />
           ) : (
             <EmptyState />
           )}
 
-          {/* Stored Links Manager */}
           <StoredLinksManager
             storedUrls={storedUrls}
             onLoadUrls={loadUrlsFromStorage}

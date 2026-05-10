@@ -356,13 +356,14 @@ Focus on these key elements (keep descriptions concise):
 6. Atmosphere/mood - emotional tone
 7. Key details - only the most important visual elements that define the image
 
-Then add relevant style keywords at the end as comma-separated modifiers (e.g., --ar 16:9, cinematic lighting, soft focus, detailed, vibrant colors).
+Then add relevant style keywords at the end as comma-separated modifiers (e.g., cinematic lighting, soft focus, detailed, vibrant colors).
 
 CRITICAL OUTPUT INSTRUCTIONS:
 - Return ONLY the prompt text.
 - Do NOT use markdown (no bold **, no italics *, no headers ###).
 - Do NOT include any introductory text like "Here is the prompt" or "Sure".
 - Do NOT include any concluding text.
+- Do NOT add aspect ratio notation like --ar 16:9 or similar.
 - Just the raw prompt string.`
 
     const result = await generativeModel.generateContent([promptText, imagePart])
@@ -374,6 +375,8 @@ CRITICAL OUTPUT INSTRUCTIONS:
         .replace(/^###\s*/gm, '') // Remove headers
         .replace(/\*\*/g, '')      // Remove bold
         .replace(/^["']|["']$/g, '') // Remove wrapping quotes
+        .replace(/--ar\s*\d+:\d+/gi, '')
+        .replace(/--ar\s+\d+/gi, '')
         .trim()
 
     // Remove conversational prefixes

@@ -1,70 +1,57 @@
 /**
- * OpenRouter API utilities
+ * LM Studio API utilities (OpenAI-compatible local models)
  */
 
 import { RateLimitConfig, imageToBase64, GeneratePromptOptions } from './gemini'
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1'
+export const DEFAULT_LMSTUDIO_BASE_URL = 'http://localhost:1234/v1'
 
-// Rate limit for free models: 20 request per minute, 200 per day
-// We'll use a conservative 5s delay between requests for free models
-// Rate limit for free models: 20 request per minute, 200 per day
-// We'll use a conservative 6s delay between requests for free models
-export const FREE_MODEL_RATE_LIMIT: RateLimitConfig = {
-    requestsPerSecond: 10 / 60, // ~0.16 requests per second
-    delayMs: 6000,
+export const LMSTUDIO_RATE_LIMIT: RateLimitConfig = {
+    requestsPerSecond: 10 / 60,
+    delayMs: 1000,
     maxRetries: 3,
-    initialBackoffMs: 2000,
-    maxBackoffMs: 30000,
+    initialBackoffMs: 1000,
+    maxBackoffMs: 15000,
     backoffMultiplier: 2,
 }
 
-export interface OpenRouterModel {
+export interface LMStudioModel {
     id: string
-    name: string
-    description?: string
-    context_length?: number
-    pricing: {
-        prompt: string
-        completion: string
-    }
+    name?: string
 }
 
 /**
- * Fetch available models from OpenRouter
+ * Fetch available models from LM Studio
  */
-export async function fetchOpenRouterModels(apiKey?: string): Promise<OpenRouterModel[]> {
+export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioModel[]> {
     try {
-        const response = await fetch(`${OPENROUTER_API_URL}/models`, {
-            headers: apiKey ? {
-                'Authorization': `Bearer ${apiKey}`,
-            } : {},
-        })
+        const url = `${baseUrl}/models`
+        const response = await fetch(url)
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch OpenRouter models: ${response.statusText}`)
+            throw new Error(`Failed to fetch LM Studio models: ${response.statusText}`)
         }
 
         const data = await response.json()
-        return data.data
+        return data.data || []
     } catch (error) {
-        console.error('Failed to fetch OpenRouter models:', error)
+        console.error('Failed to fetch LM Studio models:', error)
         return []
     }
 }
 
 /**
- * Generate prompt using OpenRouter API
+ * Generate prompt using LM Studio API
  */
-export async function generateOpenRouterPrompt(
+export async function generateLMStudioPrompt(
     url: string,
-    apiKey: string,
+    _apiKey: string,
     model: string,
-    _options: GeneratePromptOptions = {}
+    options: GeneratePromptOptions = {},
+    baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<string> {
     const { data, mimeType } = await imageToBase64(url)
 
-    // Construct the payload for OpenAI-compatible chat completion
     const payload = {
         model,
         messages: [
@@ -105,12 +92,9 @@ CRITICAL OUTPUT INSTRUCTIONS:
         ]
     }
 
-    const response = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://localhost:3000', // Required by OpenRouter
-            'X-Title': 'Image to Prompt App', // Optional
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -118,23 +102,20 @@ CRITICAL OUTPUT INSTRUCTIONS:
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || `OpenRouter API error: ${response.statusText}`)
+        throw new Error(errorData.error?.message || `LM Studio API error: ${response.statusText}`)
     }
 
     const result = await response.json()
     let content = result.choices[0]?.message?.content || ''
 
-    // Clean up the response
-    // Remove markdown headers (### ), bold markers (**), and quotes
     content = content
-        .replace(/^###\s*/gm, '') // Remove headers
-        .replace(/\*\*/g, '')      // Remove bold
-        .replace(/^["']|["']$/g, '') // Remove wrapping quotes
+        .replace(/^###\s*/gm, '')
+        .replace(/\*\*/g, '')
+        .replace(/^["']|["']$/g, '')
         .replace(/--ar\s*\d+:\d+/gi, '')
         .replace(/--ar\s+\d+/gi, '')
         .trim()
 
-    // Try to remove conversational prefixes if present (simple heuristic)
     const prefixes = [
         "Here is a comprehensive prompt",
         "Here is the prompt",
@@ -147,7 +128,6 @@ CRITICAL OUTPUT INSTRUCTIONS:
         if (content.toLowerCase().startsWith(prefix.toLowerCase())) {
             const parts = content.split(/[:\n]/)
             if (parts.length > 1) {
-                // Return everything after the first colon or newline
                 content = parts.slice(1).join(' ').trim()
                 break
             }

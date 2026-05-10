@@ -23,10 +23,12 @@ import { cn } from "@/lib/utils"
 
 import { fetchAvailableModels } from '../utils/gemini'
 import { fetchOpenRouterModels, OpenRouterModel } from '../utils/openRouter'
+import { fetchLMStudioModels, LMStudioModel } from '../utils/lmStudio'
 
 interface ModelSelectorProps {
-    provider: 'google' | 'openrouter'
+    provider: 'google' | 'openrouter' | 'lmstudio'
     apiKey: string
+    baseUrl?: string
     selectedModel: string
     onModelChange: (model: string) => void
     onIsFreeChange?: (isFree: boolean) => void
@@ -37,6 +39,7 @@ interface ModelSelectorProps {
 export function ModelSelector({
     provider,
     apiKey,
+    baseUrl,
     selectedModel,
     onModelChange,
     onIsFreeChange,
@@ -45,6 +48,7 @@ export function ModelSelector({
 }: ModelSelectorProps) {
     const [googleModels, setGoogleModels] = useState<string[]>([])
     const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>([])
+    const [lmstudioModels, setLmstudioModels] = useState<LMStudioModel[]>([])
 
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -52,7 +56,7 @@ export function ModelSelector({
 
     useEffect(() => {
         loadModels()
-    }, [provider, apiKey])
+    }, [provider, apiKey, baseUrl])
 
     const loadModels = async () => {
         setLoading(true)
@@ -62,8 +66,8 @@ export function ModelSelector({
                 const models = await fetchAvailableModels(apiKey)
                 setGoogleModels(models)
                 setOpenRouterModels([])
+                setLmstudioModels([])
 
-                // Set default if current selection is invalid
                 if (!selectedModel || !models.includes(selectedModel)) {
                     if (models.includes('gemini-1.5-flash')) {
                         onModelChange('gemini-1.5-flash')
@@ -71,17 +75,16 @@ export function ModelSelector({
                         onModelChange(models[0])
                     }
                 }
-            } else { // provider === 'openrouter'
+            } else if (provider === 'openrouter') {
                 const models = await fetchOpenRouterModels(apiKey)
                 setOpenRouterModels(models)
                 setGoogleModels([])
+                setLmstudioModels([])
 
-                // Set default if current selection is invalid
                 const currentModelData = models.find(m => m.id === selectedModel)
                 const currentExists = !!currentModelData
 
                 if (!selectedModel || !currentExists) {
-                    // Try to find a good default
                     const defaultModel = models.find(m => m.id === 'google/gemini-flash-1.5') ??
                         models.find(m => m.id === 'anthropic/claude-3-haiku') ??
                         models[0]
@@ -90,14 +93,23 @@ export function ModelSelector({
                         onIsFreeChange?.(isFree(defaultModel))
                     }
                 } else if (currentModelData) {
-                    // Update free status for current model
                     onIsFreeChange?.(isFree(currentModelData))
+                }
+            } else { // provider === 'lmstudio'
+                const models = await fetchLMStudioModels(baseUrl || 'http://localhost:1234/v1')
+                setLmstudioModels(models)
+                setGoogleModels([])
+                setOpenRouterModels([])
+
+                if (!selectedModel || !models.find(m => m.id === selectedModel)) {
+                    if (models.length > 0) {
+                        onModelChange(models[0].id)
+                    }
                 }
             }
         } catch (err) {
             console.error('Failed to load models:', err)
             setError('Failed to load models')
-            // Fallback defaults
             if (provider === 'google' && !selectedModel) onModelChange('gemini-1.5-flash')
         } finally {
             setLoading(false)
@@ -135,7 +147,9 @@ export function ModelSelector({
                             selectedModel
                                 ? (provider === 'google'
                                     ? googleModels.find(m => m === selectedModel)
-                                    : openRouterModels.find((model) => model.id === selectedModel)?.name) || selectedModel
+                                    : provider === 'openrouter'
+                                    ? openRouterModels.find((model) => model.id === selectedModel)?.name
+                                    : lmstudioModels.find((model) => model.id === selectedModel)?.name || selectedModel)
                                 : "Select model..."
                         )}
                         {loading ? <Loader2 className="ml-2 h-4 w-4 animate-spin shrink-0 opacity-50" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
@@ -166,7 +180,7 @@ export function ModelSelector({
                                             {model}
                                         </CommandItem>
                                     ))
-                                ) : (
+                                ) : provider === 'openrouter' ? (
                                     openRouterModels.map((model) => (
                                         <CommandItem
                                             key={model.id}
@@ -187,6 +201,25 @@ export function ModelSelector({
                                             {isFree(model) && (
                                                 <span className="ml-2 text-xs text-green-500">(Free)</span>
                                             )}
+                                        </CommandItem>
+                                    ))
+                                ) : (
+                                    lmstudioModels.map((model) => (
+                                        <CommandItem
+                                            key={model.id}
+                                            value={model.name || model.id}
+                                            onSelect={() => {
+                                                onModelChange(model.id)
+                                                setOpen(false)
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    selectedModel === model.id ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            {model.name || model.id}
                                         </CommandItem>
                                     ))
                                 )}
