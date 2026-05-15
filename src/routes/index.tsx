@@ -55,7 +55,7 @@ function App() {
     loadUrlsFromStorage,
   } = useUrls()
 
-  const { prompts, loading, progress, copiedIndex, generatePrompts: generatePromptsGoogle, generateSinglePrompt, copyPrompt, removePrompt, updatePrompt } =
+  const { prompts, loading, progress, copiedIndex, generatePrompts: generatePromptsGoogle, generatePromptsParallel, generateSinglePrompt, copyPrompt, removePrompt, updatePrompt } =
     usePromptGeneration()
 
   const [provider, setProvider] = useState<Provider>('google')
@@ -63,6 +63,7 @@ function App() {
   const [selectedModel, setSelectedModel] = useState('')
   const [isFreeModel, setIsFreeModel] = useState(false)
   const [delaySeconds, setDelaySeconds] = useState(2)
+  const [lmstudioFastMode, setLmstudioFastMode] = useState(false)
 
   useEffect(() => {
     if (provider === 'google') {
@@ -150,7 +151,6 @@ function App() {
   const handleGeneratePrompts = async () => {
     let apiKey = ''
     let generatorFn: ((url: string, apiKey: string, model: string, options?: GeneratePromptOptions) => Promise<string>) | undefined
-    let promptOptions: { rateLimitConfig?: RateLimitConfig; delayBetweenRequestsMs: number } = { delayBetweenRequestsMs: 0 }
 
     if (provider === 'google') {
       apiKey = googleApiKey
@@ -158,7 +158,6 @@ function App() {
         setError('Please set your Google AI API key first')
         return
       }
-      generatorFn = undefined
     } else if (provider === 'openrouter') {
       apiKey = openRouterApiKey
       if (!apiKey) {
@@ -166,10 +165,8 @@ function App() {
         return
       }
       generatorFn = generateOpenRouterPrompt
-      promptOptions.rateLimitConfig = isFreeModel ? FREE_MODEL_RATE_LIMIT : undefined
     } else {
       generatorFn = (url, _apiKey, model, opts) => generateLMStudioPrompt(url, _apiKey, model, opts, lmstudioBaseUrl || DEFAULT_LMSTUDIO_BASE_URL)
-      promptOptions.rateLimitConfig = LMSTUDIO_RATE_LIMIT
     }
 
     if (urls.length === 0) {
@@ -178,9 +175,24 @@ function App() {
     }
 
     clearError()
-    promptOptions.delayBetweenRequestsMs = delaySeconds * 1000
 
-    await generatePromptsGoogle(urls, apiKey, selectedModel, promptOptions, generatorFn)
+    // Use parallel mode for LM Studio fast mode
+    if (provider === 'lmstudio' && lmstudioFastMode) {
+      await generatePromptsParallel(urls, apiKey, selectedModel, generatorFn!, { maxConcurrency: 5 })
+    } else {
+      // Use sequential mode with rate limiting
+      const promptOptions: { rateLimitConfig?: RateLimitConfig; delayBetweenRequestsMs: number } = {
+        delayBetweenRequestsMs: delaySeconds * 1000
+      }
+
+      if (provider === 'openrouter') {
+        promptOptions.rateLimitConfig = isFreeModel ? FREE_MODEL_RATE_LIMIT : undefined
+      } else if (provider === 'lmstudio') {
+        promptOptions.rateLimitConfig = LMSTUDIO_RATE_LIMIT
+      }
+
+      await generatePromptsGoogle(urls, apiKey, selectedModel, promptOptions, generatorFn)
+    }
   }
 
   return (
@@ -208,17 +220,36 @@ function App() {
               />
 
               <div className="pt-4 border-t">
-                <div className="flex flex-col space-y-2">
-                  <label className="text-sm font-medium">Delay between requests (seconds)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={delaySeconds}
-                    onChange={(e) => setDelaySeconds(Number(e.target.value))}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-[200px]"
-                  />
-                  <p className="text-xs text-muted-foreground">Adjust wait time to avoid rate limits.</p>
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-2">
+                    <label className="text-sm font-medium">Delay between requests (seconds)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={delaySeconds}
+                      onChange={(e) => setDelaySeconds(Number(e.target.value))}
+                      disabled={provider === 'lmstudio' && lmstudioFastMode}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 max-w-[200px]"
+                    />
+                    <p className="text-xs text-muted-foreground">Adjust wait time to avoid rate limits.</p>
+                  </div>
+
+                  {provider === 'lmstudio' && (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="fastMode"
+                        checked={lmstudioFastMode}
+                        onChange={(e) => setLmstudioFastMode(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="fastMode" className="text-sm font-medium cursor-pointer">
+                        Fast Mode (up to 5 parallel requests)
+                      </label>
+                      <span className="text-xs text-muted-foreground">(no rate limiting)</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

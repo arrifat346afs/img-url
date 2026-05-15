@@ -256,6 +256,120 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
         setLoading(false)
     }
 
+    /**
+     * Generate prompts for multiple images with parallel processing
+     * No rate limiting, sends up to maxConcurrency requests simultaneously
+     */
+    const generatePromptsParallel = async (
+        urls: string[],
+        apiKey: string,
+        model: string,
+        generatorFn: (
+            url: string,
+            apiKey: string,
+            model: string,
+            options?: GeneratePromptOptions
+        ) => Promise<string>,
+        options: { maxConcurrency: number } = { maxConcurrency: 3 },
+        onProgress?: (completed: number, total: number, results: PromptResult[]) => void
+    ) => {
+        setLoading(true)
+        const total = urls.length
+        setProgress({ current: 0, total, percentage: 0 })
+
+        const { maxConcurrency } = options
+        const results: PromptResult[] = []
+        let completedCount = 0
+
+        // Initialize all prompts as pending
+        setPrompts((prev) => {
+            const newMap = new Map(prev)
+            urls.forEach((url) => {
+                if (!newMap.has(url) || newMap.get(url)?.status === 'error') {
+                    newMap.set(url, {
+                        url,
+                        prompt: '',
+                        status: 'pending'
+                    })
+                }
+            })
+            return newMap
+        })
+
+        // Process URLs in chunks
+        for (let i = 0; i < urls.length; i += maxConcurrency) {
+            const chunk = urls.slice(i, i + maxConcurrency)
+
+            // Update status to generating for all in chunk
+            setPrompts((prev) => {
+                const newMap = new Map(prev)
+                chunk.forEach((url) => {
+                    const current = newMap.get(url)
+                    if (current?.status !== 'completed') {
+                        newMap.set(url, { ...current!, url, status: 'generating', error: undefined })
+                    }
+                })
+                return newMap
+            })
+
+            // Execute all requests in parallel
+            const chunkPromises = chunk.map(async (url) => {
+                try {
+                    const prompt = await generatorFn(url, apiKey, model, {
+                        useRateLimiting: false,
+                        useRetry: true,
+                    })
+
+                    setPrompts((prev) => {
+                        const newMap = new Map(prev)
+                        newMap.set(url, {
+                            url,
+                            prompt,
+                            status: 'completed',
+                            error: undefined
+                        })
+                        return newMap
+                    })
+
+                    return { url, prompt, status: 'completed' as const } as PromptResult
+                } catch (err) {
+                    setPrompts((prev) => {
+                        const newMap = new Map(prev)
+                        newMap.set(url, {
+                            url,
+                            prompt: '',
+                            status: 'error',
+                            error: err instanceof Error ? err.message : 'Failed to generate prompt',
+                        })
+                        return newMap
+                    })
+
+                    return {
+                        url,
+                        prompt: '',
+                        status: 'error' as const,
+                        error: err instanceof Error ? err.message : 'Failed to generate prompt'
+                    } as PromptResult
+                }
+            })
+
+            const chunkResults = await Promise.all(chunkPromises)
+            results.push(...chunkResults)
+            completedCount += chunk.length
+
+            setProgress({
+                current: completedCount,
+                total,
+                percentage: Math.round((completedCount / total) * 100)
+            })
+
+            onProgress?.(completedCount, total, chunkResults)
+        }
+
+        setLoading(false)
+        return results
+    }
+
     const copyPrompt = async (prompt: string, index: number) => {
         try {
             await navigator.clipboard.writeText(prompt)
@@ -294,6 +408,7 @@ export function usePromptGeneration(options: UsePromptGenerationOptions = {}) {
         copiedIndex,
         rateLimitConfig,
         generatePrompts,
+        generatePromptsParallel,
         generateSinglePrompt,
         copyPrompt,
         clearPrompts,

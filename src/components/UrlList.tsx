@@ -10,6 +10,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface UrlListProps {
     urls: string[]
@@ -51,16 +57,15 @@ export function UrlList({
         return successfulPrompts
     }
 
-    const handleExportPrompts = () => {
+    const handleExportPrompts = (addBlankLine: boolean) => {
         const successfulPrompts = getSuccessfulPrompts()
         if (successfulPrompts.length === 0) {
             return
         }
 
-        // Join prompts with single newline (no blank lines between)
-        const content = successfulPrompts.join('\n')
+        const separator = addBlankLine ? '\n\n' : '\n'
+        const content = successfulPrompts.join(separator)
 
-        // Create blob and trigger download
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -99,15 +104,26 @@ export function UrlList({
                                 </>
                             )}
                         </Button>
-                        <Button
-                            variant="outline"
-                            onClick={handleExportPrompts}
-                            disabled={!hasExportablePrompts || loading}
-                            title={hasExportablePrompts ? 'Export prompts to text file' : 'No prompts to export'}
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    disabled={!hasExportablePrompts || loading}
+                                    title={hasExportablePrompts ? 'Export prompts to text file' : 'No prompts to export'}
+                                >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Export
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleExportPrompts(true)}>
+                                    With blank lines
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportPrompts(false)}>
+                                    Without blank lines
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </CardHeader>
