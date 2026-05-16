@@ -21,6 +21,72 @@ export interface LMStudioModel {
 }
 
 /**
+ * Send chat message to LM Studio and get response
+ */
+export async function sendChatMessage(
+    message: string,
+    baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
+): Promise<{ success: boolean; response?: string; error?: string }> {
+    try {
+        const payload = {
+            messages: [
+                {
+                    role: 'user',
+                    content: message
+                }
+            ]
+        }
+
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            return { success: false, error: errorData.error?.message || `Error: ${response.statusText}` }
+        }
+
+        const result = await response.json()
+        const content = result.choices[0]?.message?.content || 'No response'
+
+        return { success: true, response: content }
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+}
+
+/**
+ * Test connection to LM Studio server
+ */
+export async function testLmStudioConnection(baseUrl: string): Promise<{ success: boolean; message: string }> {
+    try {
+        const response = await fetch(`${baseUrl}/models`, { method: 'GET' })
+        
+        if (!response.ok) {
+            return { success: false, message: `Server returned ${response.status}` }
+        }
+
+        const data = await response.json()
+        const modelCount = data.data?.length || 0
+        
+        if (modelCount > 0) {
+            return { success: true, message: `Connected! ${modelCount} model(s) available` }
+        } else {
+            return { success: false, message: 'Connected, but no models loaded' }
+        }
+    } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            return { success: false, message: 'Connection refused - is LM Studio running?' }
+        }
+        return { success: false, message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }
+    }
+}
+
+/**
  * Fetch available models from LM Studio
  */
 export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioModel[]> {
@@ -42,18 +108,19 @@ export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioMode
 
 /**
  * Generate prompt using LM Studio API
+ * If model is not provided or empty, LM Studio will use its currently loaded model
  */
 export async function generateLMStudioPrompt(
     url: string,
     _apiKey: string,
-    model: string,
+    model: string = '',
     options: GeneratePromptOptions = {},
     baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<string> {
     const { data, mimeType } = await imageToBase64(url)
 
-    const payload = {
-        model,
+    const payload: Record<string, unknown> = {
+        ...(model ? { model } : {}),
         messages: [
             {
                 role: 'user',

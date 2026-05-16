@@ -32,13 +32,11 @@ function App() {
     googleAiModel,
     openRouterModel,
     lmstudioBaseUrl,
-    lmstudioModel,
     saveGoogleApiKey,
     saveOpenRouterApiKey,
     saveGoogleAiModel,
     saveOpenRouterModel,
     saveLmstudioBaseUrl,
-    saveLmstudioModel
   } = useApiKey()
 
   const {
@@ -71,9 +69,9 @@ function App() {
     } else if (provider === 'openrouter') {
       setSelectedModel(openRouterModel)
     } else {
-      setSelectedModel(lmstudioModel)
+      setSelectedModel('')
     }
-  }, [provider, googleAiModel, openRouterModel, lmstudioModel])
+  }, [provider, googleAiModel, openRouterModel])
 
   const handleAddUrl = () => {
     if (addUrl(inputUrl)) {
@@ -99,7 +97,7 @@ function App() {
 
   const handleProviderChange = (newProvider: Provider) => {
     setProvider(newProvider)
-    const newModel = newProvider === 'google' ? googleAiModel : newProvider === 'openrouter' ? openRouterModel : lmstudioModel
+    const newModel = newProvider === 'google' ? googleAiModel : newProvider === 'openrouter' ? openRouterModel : ''
     setSelectedModel(newModel)
   }
 
@@ -109,8 +107,6 @@ function App() {
       saveGoogleAiModel(model)
     } else if (provider === 'openrouter') {
       saveOpenRouterModel(model)
-    } else {
-      saveLmstudioModel(model)
     }
   }
 
@@ -271,16 +267,18 @@ function App() {
                 onSaveUrls={handleSaveUrls}
                 currentUrlsCount={urls.length}
                 modelSelector={
-                  <ModelSelector
-                    provider={provider}
-                    apiKey={provider === 'google' ? googleApiKey : openRouterApiKey}
-                    baseUrl={lmstudioBaseUrl}
-                    selectedModel={selectedModel}
-                    onModelChange={handleModelChange}
-                    onIsFreeChange={setIsFreeModel}
-                    showLabel={false}
-                    className="w-auto"
-                  />
+                  provider !== 'lmstudio' ? (
+                    <ModelSelector
+                      provider={provider}
+                      apiKey={provider === 'google' ? googleApiKey : openRouterApiKey}
+                      baseUrl={lmstudioBaseUrl}
+                      selectedModel={selectedModel}
+                      onModelChange={handleModelChange}
+                      onIsFreeChange={setIsFreeModel}
+                      showLabel={false}
+                      className="w-auto"
+                    />
+                  ) : undefined
                 }
               />
             </CardContent>

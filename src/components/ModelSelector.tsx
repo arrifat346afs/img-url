@@ -130,6 +130,17 @@ export function ModelSelector({
         )
     }
 
+    if (provider === 'lmstudio') {
+        return (
+            <div className={cn("space-y-2", className)}>
+                {showLabel && <label className="text-sm font-medium">Model</label>}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Uses currently loaded model in LM Studio</span>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className={cn("space-y-2", className)}>
             {showLabel && <label className="text-sm font-medium">Model</label>}

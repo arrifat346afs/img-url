@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, Loader2, CheckCircle, XCircle, Send, Bot, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from './ui/label'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { testLmStudioConnection, sendChatMessage } from '../utils/lmStudio'
 
 export type Provider = 'google' | 'openrouter' | 'lmstudio'
 
@@ -32,6 +33,13 @@ export function ApiKeyManager({
     const [tempGoogleKey, setTempGoogleKey] = useState('')
     const [tempOpenRouterKey, setTempOpenRouterKey] = useState('')
     const [tempLmstudioBaseUrl, setTempLmstudioBaseUrl] = useState('')
+    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle')
+    const [connectionMessage, setConnectionMessage] = useState('')
+
+    const [chatMessage, setChatMessage] = useState('')
+    const [chatResponse, setChatResponse] = useState('')
+    const [chatLoading, setChatLoading] = useState(false)
+    const [chatError, setChatError] = useState('')
 
     useEffect(() => {
         setTempGoogleKey(googleApiKey)
@@ -44,6 +52,50 @@ export function ApiKeyManager({
     useEffect(() => {
         setTempLmstudioBaseUrl(lmstudioBaseUrl)
     }, [lmstudioBaseUrl])
+
+    useEffect(() => {
+        setConnectionStatus('idle')
+        setConnectionMessage('')
+    }, [provider])
+
+    const handleTestConnection = async () => {
+        const url = tempLmstudioBaseUrl || lmstudioBaseUrl
+        setConnectionStatus('testing')
+        setConnectionMessage('')
+        
+        const result = await testLmStudioConnection(url)
+        
+        if (result.success) {
+            setConnectionStatus('success')
+        } else {
+            setConnectionStatus('failed')
+        }
+        setConnectionMessage(result.message)
+    }
+
+    const handleSendChat = async () => {
+        if (!chatMessage.trim()) return
+        
+        const url = tempLmstudioBaseUrl || lmstudioBaseUrl
+        setChatLoading(true)
+        setChatError('')
+        
+        const result = await sendChatMessage(chatMessage, url)
+        
+        if (result.success) {
+            setChatResponse(result.response || '')
+        } else {
+            setChatError(result.error || 'Failed to get response')
+        }
+        setChatLoading(false)
+    }
+
+    const handleChatKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            handleSendChat()
+        }
+    }
 
     const handleSave = () => {
         if (provider === 'google') {
@@ -93,10 +145,33 @@ export function ApiKeyManager({
                             placeholder={provider === 'lmstudio' ? 'http://localhost:1234/v1' : `Enter your ${provider === 'google' ? 'Google' : 'OpenRouter'} API key`}
                             className="flex-1"
                         />
+                        {provider === 'lmstudio' && (
+                            <Button 
+                                variant="outline" 
+                                onClick={handleTestConnection}
+                                disabled={connectionStatus === 'testing'}
+                            >
+                                {connectionStatus === 'testing' ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    'Test'
+                                )}
+                            </Button>
+                        )}
                         <Button onClick={handleSave}>
                             Save
                         </Button>
                     </div>
+                    {provider === 'lmstudio' && connectionStatus !== 'idle' && (
+                        <div className={`flex items-center gap-2 text-sm ${
+                            connectionStatus === 'success' ? 'text-green-600' : 
+                            connectionStatus === 'failed' ? 'text-red-600' : ''
+                        }`}>
+                            {connectionStatus === 'success' && <CheckCircle className="w-4 h-4" />}
+                            {connectionStatus === 'failed' && <XCircle className="w-4 h-4" />}
+                            <span>{connectionMessage}</span>
+                        </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                         {provider === 'google' ? (
                             <>
@@ -128,6 +203,52 @@ export function ApiKeyManager({
                                 <code className="text-xs">http://localhost:1234/v1</code>
                             </>
                         )}
+                    </p>
+                </div>
+            )}
+
+            {provider === 'lmstudio' && (
+                <div className="space-y-3 p-4 border rounded-md bg-muted/50">
+                    <Label>Quick Chat Test</Label>
+                    <div className="space-y-2">
+                        <div className="flex gap-2">
+                            <Input
+                                value={chatMessage}
+                                onChange={(e) => setChatMessage(e.target.value)}
+                                onKeyPress={handleChatKeyPress}
+                                placeholder="Send a message to test the AI..."
+                                disabled={chatLoading}
+                            />
+                            <Button onClick={handleSendChat} disabled={chatLoading || !chatMessage.trim()}>
+                                {chatLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Send className="w-4 h-4" />
+                                )}
+                            </Button>
+                        </div>
+                        
+                        {(chatResponse || chatError) && (
+                            <div className="mt-3 p-3 bg-background rounded-md border">
+                                {chatError ? (
+                                    <div className="text-sm text-red-500 flex items-center gap-2">
+                                        <XCircle className="w-4 h-4" />
+                                        {chatError}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <Bot className="w-3 h-3" />
+                                            <span>AI Response:</span>
+                                        </div>
+                                        <p className="text-sm whitespace-pre-wrap">{chatResponse}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Use this to quickly test if your local AI is responding.
                     </p>
                 </div>
             )}
