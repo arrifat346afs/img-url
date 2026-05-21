@@ -38,6 +38,14 @@ npm run test -- --watch         # Run tests in watch mode
 npm run test -- <pattern>       # Run tests matching pattern
 ```
 
+### LM Studio Proxy (for Chrome PNA / static deployments)
+```bash
+npm run proxy                   # Start standalone proxy on :3001 → LM Studio :1234
+```
+The proxy adds `Access-Control-Allow-Private-Network: true` to OPTIONS preflight
+and CORS headers to all responses. Enable "Direct Browser Fetch" in the app UI
+to bypass the server proxy and use direct browser fetch with `targetAddressSpace: 'local'`.
+
 ## Code Style Guidelines
 
 ### TypeScript

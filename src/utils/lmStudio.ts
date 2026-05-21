@@ -3,8 +3,25 @@
  */
 
 import { RateLimitConfig, imageToBase64, GeneratePromptOptions } from './gemini'
+import { lmStudioProxy } from './lmStudioProxy'
+import {
+  sendChatMessageDirect,
+  testLmStudioConnectionDirect,
+  fetchLMStudioModelsDirect,
+  generateLMStudioPromptDirect,
+} from './lmStudioDirect'
 
 export const DEFAULT_LMSTUDIO_BASE_URL = 'http://localhost:1234/v1'
+
+let directFetchMode = false
+
+export function setDirectFetchMode(enabled: boolean) {
+  directFetchMode = enabled
+}
+
+export function isDirectFetchMode(): boolean {
+  return directFetchMode
+}
 
 export const LMSTUDIO_RATE_LIMIT: RateLimitConfig = {
     requestsPerSecond: 10 / 60,
@@ -27,6 +44,9 @@ export async function sendChatMessage(
     message: string,
     baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<{ success: boolean; response?: string; error?: string }> {
+    if (directFetchMode) {
+        return sendChatMessageDirect(message, baseUrl)
+    }
     try {
         const payload = {
             messages: [
@@ -37,21 +57,20 @@ export async function sendChatMessage(
             ]
         }
 
-        const response = await fetch(`${baseUrl}/chat/completions`, {
+        const result = await lmStudioProxy({
+            path: '/chat/completions',
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
+            body: payload,
+            baseUrl,
         })
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            return { success: false, error: errorData.error?.message || `Error: ${response.statusText}` }
+        if (!result.ok) {
+            const errorData = result.data as any
+            return { success: false, error: errorData?.error?.message || `Error: ${result.statusText}` }
         }
 
-        const result = await response.json()
-        const content = result.choices[0]?.message?.content || 'No response'
+        const responseData = result.data as any
+        const content = responseData?.choices?.[0]?.message?.content || 'No response'
 
         return { success: true, response: content }
     } catch (error) {
@@ -63,15 +82,21 @@ export async function sendChatMessage(
  * Test connection to LM Studio server
  */
 export async function testLmStudioConnection(baseUrl: string): Promise<{ success: boolean; message: string }> {
+    if (directFetchMode) {
+        return testLmStudioConnectionDirect(baseUrl)
+    }
     try {
-        const response = await fetch(`${baseUrl}/models`, { method: 'GET' })
+        const result = await lmStudioProxy({
+            path: '/models',
+            baseUrl,
+        })
         
-        if (!response.ok) {
-            return { success: false, message: `Server returned ${response.status}` }
+        if (!result.ok) {
+            return { success: false, message: `Server returned ${result.status}` }
         }
 
-        const data = await response.json()
-        const modelCount = data.data?.length || 0
+        const responseData = result.data as any
+        const modelCount = responseData.data?.length || 0
         
         if (modelCount > 0) {
             return { success: true, message: `Connected! ${modelCount} model(s) available` }
@@ -90,16 +115,21 @@ export async function testLmStudioConnection(baseUrl: string): Promise<{ success
  * Fetch available models from LM Studio
  */
 export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioModel[]> {
+    if (directFetchMode) {
+        return fetchLMStudioModelsDirect(baseUrl)
+    }
     try {
-        const url = `${baseUrl}/models`
-        const response = await fetch(url)
+        const result = await lmStudioProxy({
+            path: '/models',
+            baseUrl,
+        })
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch LM Studio models: ${response.statusText}`)
+        if (!result.ok) {
+            throw new Error(`Failed to fetch LM Studio models: ${result.statusText}`)
         }
 
-        const data = await response.json()
-        return data.data || []
+        const responseData = result.data as any
+        return responseData.data || []
     } catch (error) {
         console.error('Failed to fetch LM Studio models:', error)
         return []
@@ -117,6 +147,9 @@ export async function generateLMStudioPrompt(
     options: GeneratePromptOptions = {},
     baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<string> {
+    if (directFetchMode) {
+        return generateLMStudioPromptDirect(url, _apiKey, model, options, baseUrl)
+    }
     const { data, mimeType } = await imageToBase64(url)
 
     const payload: Record<string, unknown> = {
@@ -159,21 +192,20 @@ CRITICAL OUTPUT INSTRUCTIONS:
         ]
     }
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const proxyResult = await lmStudioProxy({
+        path: '/chat/completions',
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        body: payload,
+        baseUrl,
     })
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || `LM Studio API error: ${response.statusText}`)
+    if (!proxyResult.ok) {
+        const errorData = proxyResult.data as any
+        throw new Error(errorData?.error?.message || `LM Studio API error: ${proxyResult.statusText}`)
     }
 
-    const result = await response.json()
-    let content = result.choices[0]?.message?.content || ''
+    const result = proxyResult.data as any
+    let content = result.choices?.[0]?.message?.content || ''
 
     content = content
         .replace(/^###\s*/gm, '')

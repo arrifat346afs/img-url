@@ -32,11 +32,13 @@ function App() {
     googleAiModel,
     openRouterModel,
     lmstudioBaseUrl,
+    lmstudioDirectFetch,
     saveGoogleApiKey,
     saveOpenRouterApiKey,
     saveGoogleAiModel,
     saveOpenRouterModel,
     saveLmstudioBaseUrl,
+    setLmstudioDirectFetch,
   } = useApiKey()
 
   const {
@@ -232,19 +234,36 @@ function App() {
                   </div>
 
                   {provider === 'lmstudio' && (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="fastMode"
-                        checked={lmstudioFastMode}
-                        onChange={(e) => setLmstudioFastMode(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <label htmlFor="fastMode" className="text-sm font-medium cursor-pointer">
-                        Fast Mode (up to 5 parallel requests)
-                      </label>
-                      <span className="text-xs text-muted-foreground">(no rate limiting)</span>
-                    </div>
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="fastMode"
+                          checked={lmstudioFastMode}
+                          onChange={(e) => setLmstudioFastMode(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor="fastMode" className="text-sm font-medium cursor-pointer">
+                          Fast Mode (up to 5 parallel requests)
+                        </label>
+                        <span className="text-xs text-muted-foreground">(no rate limiting)</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="directFetch"
+                          checked={lmstudioDirectFetch}
+                          onChange={(e) => setLmstudioDirectFetch(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor="directFetch" className="text-sm font-medium cursor-pointer">
+                          Direct Browser Fetch
+                        </label>
+                        <span className="text-xs text-muted-foreground">
+                          (bypass server proxy — run <code className="text-xs bg-muted px-1 rounded">node local-proxy.mjs</code>)
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

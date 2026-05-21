@@ -3,12 +3,14 @@
  */
 
 import { useState, useEffect } from 'react'
+import { setDirectFetchMode } from '../utils/lmStudio'
 
 const GOOGLE_API_KEY_STORAGE_KEY = 'gemini_api_key'
 const OPENROUTER_API_KEY_STORAGE_KEY = 'openrouter_api_key'
 const GOOGLE_AI_MODEL_STORAGE_KEY = 'google_ai_model'
 const OPENROUTER_MODEL_STORAGE_KEY = 'openrouter_model'
 const LMSTUDIO_BASE_URL_STORAGE_KEY = 'lmstudio_base_url'
+const LMSTUDIO_DIRECT_FETCH_KEY = 'lmstudio_direct_fetch'
 
 export function useApiKey() {
     const [googleApiKey, setGoogleApiKey] = useState('')
@@ -16,6 +18,7 @@ export function useApiKey() {
     const [googleAiModel, setGoogleAiModel] = useState('')
     const [openRouterModel, setOpenRouterModel] = useState('')
     const [lmstudioBaseUrl, setLmstudioBaseUrl] = useState('http://localhost:1234/v1')
+    const [lmstudioDirectFetch, setLmstudioDirectFetchState] = useState(false)
 
     // Load API keys and models from localStorage on mount
     useEffect(() => {
@@ -30,6 +33,12 @@ export function useApiKey() {
         if (savedGoogleModel) setGoogleAiModel(savedGoogleModel)
         if (savedOpenRouterModel) setOpenRouterModel(savedOpenRouterModel)
         if (savedLmstudioBaseUrl) setLmstudioBaseUrl(savedLmstudioBaseUrl)
+
+        const savedDirectFetch = localStorage.getItem(LMSTUDIO_DIRECT_FETCH_KEY)
+        if (savedDirectFetch === 'true') {
+            setLmstudioDirectFetchState(true)
+            setDirectFetchMode(true)
+        }
     }, [])
 
     // Save Google API key
@@ -71,16 +80,25 @@ export function useApiKey() {
         setLmstudioBaseUrl(trimmed || 'http://localhost:1234/v1')
     }
 
+    // Toggle direct browser fetch mode (bypasses server proxy, requires local-proxy.mjs)
+    const setLmstudioDirectFetch = (enabled: boolean) => {
+        localStorage.setItem(LMSTUDIO_DIRECT_FETCH_KEY, String(enabled))
+        setLmstudioDirectFetchState(enabled)
+        setDirectFetchMode(enabled)
+    }
+
     return {
         googleApiKey,
         openRouterApiKey,
         googleAiModel,
         openRouterModel,
         lmstudioBaseUrl,
+        lmstudioDirectFetch,
         saveGoogleApiKey,
         saveOpenRouterApiKey,
         saveGoogleAiModel,
         saveOpenRouterModel,
         saveLmstudioBaseUrl,
+        setLmstudioDirectFetch,
     }
 }
