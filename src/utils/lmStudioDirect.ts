@@ -9,7 +9,9 @@
  * to respond with Access-Control-Allow-Private-Network: true on OPTIONS.
  */
 
-import { RateLimitConfig, imageToBase64, GeneratePromptOptions } from './gemini'
+import { imageToBase64, GeneratePromptOptions } from './gemini'
+import { isTauri } from './tauri'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 
 export const DEFAULT_LMSTUDIO_PROXY_URL = 'http://localhost:3001/v1'
 
@@ -24,13 +26,19 @@ async function directFetch<T = unknown>(
   url: string,
   options: RequestInit = {},
 ): Promise<DirectFetchResult<T>> {
-  const fetchOptions: RequestInit & { targetAddressSpace?: string } = {
-    ...options,
-    targetAddressSpace: 'local',
-  }
-
   try {
-    const response = await fetch(url, fetchOptions)
+    let response: Response
+
+    if (isTauri()) {
+      response = await tauriFetch(url, options)
+    } else {
+      const fetchOptions: RequestInit & { targetAddressSpace?: string } = {
+        ...options,
+        targetAddressSpace: 'local',
+      }
+      response = await fetch(url, fetchOptions)
+    }
+
     const data = (await response.json().catch(() => ({}))) as T
     return {
       ok: response.ok,

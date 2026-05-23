@@ -10,6 +10,7 @@ import {
   fetchLMStudioModelsDirect,
   generateLMStudioPromptDirect,
 } from './lmStudioDirect'
+import { isTauri } from './tauri'
 
 export const DEFAULT_LMSTUDIO_BASE_URL = 'http://localhost:1234/v1'
 
@@ -44,7 +45,7 @@ export async function sendChatMessage(
     message: string,
     baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<{ success: boolean; response?: string; error?: string }> {
-    if (directFetchMode) {
+    if (directFetchMode || isTauri()) {
         return sendChatMessageDirect(message, baseUrl)
     }
     try {
@@ -82,7 +83,7 @@ export async function sendChatMessage(
  * Test connection to LM Studio server
  */
 export async function testLmStudioConnection(baseUrl: string): Promise<{ success: boolean; message: string }> {
-    if (directFetchMode) {
+    if (directFetchMode || isTauri()) {
         return testLmStudioConnectionDirect(baseUrl)
     }
     try {
@@ -115,7 +116,7 @@ export async function testLmStudioConnection(baseUrl: string): Promise<{ success
  * Fetch available models from LM Studio
  */
 export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioModel[]> {
-    if (directFetchMode) {
+    if (directFetchMode || isTauri()) {
         return fetchLMStudioModelsDirect(baseUrl)
     }
     try {
@@ -147,7 +148,7 @@ export async function generateLMStudioPrompt(
     options: GeneratePromptOptions = {},
     baseUrl: string = DEFAULT_LMSTUDIO_BASE_URL
 ): Promise<string> {
-    if (directFetchMode) {
+    if (directFetchMode || isTauri()) {
         return generateLMStudioPromptDirect(url, _apiKey, model, options, baseUrl)
     }
     const { data, mimeType } = await imageToBase64(url)
