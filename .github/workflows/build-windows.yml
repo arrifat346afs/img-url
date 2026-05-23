@@ -30,7 +30,7 @@ jobs:
         run: bun install
 
       - name: Build Tauri app
-        run: bun x tauri build
+        run: bun run tauri build
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
