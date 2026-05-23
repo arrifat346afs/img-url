@@ -22,7 +22,6 @@
           "url": "http://localhost:*"
         }
       ]
-    },
-    "http:default"
+    }
   ]
 }

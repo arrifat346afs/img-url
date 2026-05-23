@@ -114,7 +114,7 @@ export async function generateLMStudioPromptDirect(
   url: string,
   _apiKey: string,
   model: string = '',
-  options: GeneratePromptOptions = {},
+  _options: GeneratePromptOptions = {},
   baseUrl: string = DEFAULT_LMSTUDIO_PROXY_URL,
 ): Promise<string> {
   const { data, mimeType } = await imageToBase64(url)
