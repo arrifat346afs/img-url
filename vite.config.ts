@@ -15,9 +15,29 @@ const config = defineConfig({
       projects: ['./tsconfig.json'],
     }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      // SPA mode with prerendering to generate a static index.html for Tauri
+      spa: {
+        prerender: {
+          enabled: true,
+          // Output to /index.html so Tauri can find the entry point
+          outputPath: '/index.html',
+          crawlLinks: false,
+          retryCount: 0,
+        },
+      },
+    }),
     viteReact(),
   ],
+  // Prevent Vite from obscuring rust errors during tauri build
+  clearScreen: false,
+  server: {
+    port: 3000,
+    strictPort: true,
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
+  },
 })
 
 export default config
