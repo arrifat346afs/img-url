@@ -17,11 +17,44 @@ export interface ProxyResponse {
   data: unknown
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+export function readProxyRequest(data: unknown): ProxyRequest | null {
+  if (!isRecord(data) || typeof data.path !== 'string') {
+    return null
+  }
+
+  return data as unknown as ProxyRequest
+}
+
+function normalizeProxyUrl(path: string, baseUrl?: string): string {
+  const normalizedBaseUrl = (baseUrl || DEFAULT_LMSTUDIO_BASE_URL).replace(/\/$/, '')
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${normalizedBaseUrl}${normalizedPath}`
+}
+
 export const lmStudioProxy = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
-    const { path, method = 'GET', headers = {}, body, baseUrl } = data as ProxyRequest
+    const request = readProxyRequest(data)
 
-    const url = `${baseUrl || DEFAULT_LMSTUDIO_BASE_URL}${path}`
+    if (!request) {
+      return {
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        data: {
+          error: {
+            message: 'Missing LM Studio proxy request data. Please restart the dev server and try again.',
+          },
+        },
+      } as ProxyResponse
+    }
+
+    const { path, method = 'GET', headers = {}, body, baseUrl } = request
+
+    const url = normalizeProxyUrl(path, baseUrl)
 
     const fetchOptions: RequestInit = {
       method,
@@ -31,7 +64,7 @@ export const lmStudioProxy = createServerFn({ method: 'POST' })
       },
     }
 
-    if (body && method !== 'GET') {
+    if (body !== undefined && method !== 'GET') {
       fetchOptions.body = JSON.stringify(body)
     }
 

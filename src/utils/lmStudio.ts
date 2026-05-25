@@ -58,13 +58,18 @@ export async function sendChatMessage(
         }
 
         const result = await lmStudioProxy({
-            path: '/chat/completions',
-            method: 'POST',
-            body: payload,
-            baseUrl,
+            data: {
+                path: '/chat/completions',
+                method: 'POST',
+                body: payload,
+                baseUrl,
+            },
         })
 
         if (!result.ok) {
+	            if (result.status === 0) {
+	                return { success: false, error: `Connection refused - is LM Studio running at ${baseUrl}?` }
+	            }
             const errorData = result.data as any
             return { success: false, error: errorData?.error?.message || `Error: ${result.statusText}` }
         }
@@ -87,11 +92,16 @@ export async function testLmStudioConnection(baseUrl: string): Promise<{ success
     }
     try {
         const result = await lmStudioProxy({
-            path: '/models',
-            baseUrl,
+            data: {
+                path: '/models',
+                baseUrl,
+            },
         })
         
         if (!result.ok) {
+	            if (result.status === 0) {
+	                return { success: false, message: `Connection refused - is LM Studio running at ${baseUrl}?` }
+	            }
             return { success: false, message: `Server returned ${result.status}` }
         }
 
@@ -120,11 +130,16 @@ export async function fetchLMStudioModels(baseUrl: string): Promise<LMStudioMode
     }
     try {
         const result = await lmStudioProxy({
-            path: '/models',
-            baseUrl,
+            data: {
+                path: '/models',
+                baseUrl,
+            },
         })
 
         if (!result.ok) {
+	            if (result.status === 0) {
+	                throw new Error(`Connection refused - is LM Studio running at ${baseUrl}?`)
+	            }
             throw new Error(`Failed to fetch LM Studio models: ${result.statusText}`)
         }
 
@@ -193,13 +208,18 @@ CRITICAL OUTPUT INSTRUCTIONS:
     }
 
     const proxyResult = await lmStudioProxy({
-        path: '/chat/completions',
-        method: 'POST',
-        body: payload,
-        baseUrl,
+        data: {
+            path: '/chat/completions',
+            method: 'POST',
+            body: payload,
+            baseUrl,
+        },
     })
 
     if (!proxyResult.ok) {
+	        if (proxyResult.status === 0) {
+	            throw new Error(`Connection refused - is LM Studio running at ${baseUrl}?`)
+	        }
         const errorData = proxyResult.data as any
         throw new Error(errorData?.error?.message || `LM Studio API error: ${proxyResult.statusText}`)
     }
