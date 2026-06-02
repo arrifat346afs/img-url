@@ -13,8 +13,8 @@ const OPENROUTER_MODEL_STORAGE_KEY = 'openrouter_model'
 const LMSTUDIO_BASE_URL_STORAGE_KEY = 'lmstudio_base_url'
 const LMSTUDIO_DIRECT_FETCH_KEY = 'lmstudio_direct_fetch'
 
-export function getDefaultLmStudioBaseUrl(directFetchEnabled: boolean): string {
-    return directFetchEnabled ? DEFAULT_LMSTUDIO_PROXY_URL : DEFAULT_LMSTUDIO_BASE_URL
+export function getDefaultLmStudioBaseUrl(_directFetchEnabled: boolean): string {
+    return DEFAULT_LMSTUDIO_BASE_URL
 }
 
 export function resolveLmStudioBaseUrl(currentBaseUrl: string, directFetchEnabled: boolean): string {
@@ -53,7 +53,9 @@ export function useApiKey() {
         if (savedGoogleModel) setGoogleAiModel(savedGoogleModel)
         if (savedOpenRouterModel) setOpenRouterModel(savedOpenRouterModel)
         if (savedLmstudioBaseUrl) {
-            setLmstudioBaseUrl(savedLmstudioBaseUrl)
+            const resolvedBaseUrl = resolveLmStudioBaseUrl(savedLmstudioBaseUrl, savedDirectFetch)
+            setLmstudioBaseUrl(resolvedBaseUrl)
+            localStorage.setItem(LMSTUDIO_BASE_URL_STORAGE_KEY, resolvedBaseUrl)
         } else if (savedDirectFetch) {
             const defaultBaseUrl = getDefaultLmStudioBaseUrl(true)
             setLmstudioBaseUrl(defaultBaseUrl)
@@ -105,7 +107,7 @@ export function useApiKey() {
         setLmstudioBaseUrl(nextBaseUrl)
     }
 
-    // Toggle direct browser fetch mode (bypasses server proxy, requires local-proxy.mjs)
+    // Toggle direct browser fetch mode (browser calls LM Studio directly)
     const setLmstudioDirectFetch = (enabled: boolean) => {
         const nextBaseUrl = resolveLmStudioBaseUrl(lmstudioBaseUrl, enabled)
         localStorage.setItem(LMSTUDIO_DIRECT_FETCH_KEY, String(enabled))

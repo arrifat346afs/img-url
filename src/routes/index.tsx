@@ -291,7 +291,7 @@ function App() {
                           Direct Browser Fetch
                         </label>
                         <span className="text-xs text-muted-foreground">
-                          (bypass server proxy — run <code className="text-xs bg-muted px-1 rounded">bun run proxy</code> and use <code className="text-xs bg-muted px-1 rounded">http://localhost:3001/v1</code>)
+                          (deployed browser calls <code className="text-xs bg-muted px-1 rounded">http://localhost:1234/v1</code> directly)
                         </span>
                       </div>
                     </>

@@ -16,7 +16,6 @@ import {
   testLmStudioConnection,
   sendChatMessage,
 } from "../utils/lmStudio";
-import { DEFAULT_LMSTUDIO_PROXY_URL } from "../utils/lmStudioDirect";
 
 export type Provider = "google" | "openrouter" | "lmstudio";
 
@@ -191,9 +190,7 @@ export function ApiKeyManager({
               }
               placeholder={
                 provider === "lmstudio"
-                  ? lmstudioDirectFetch
-                    ? DEFAULT_LMSTUDIO_PROXY_URL
-                    : DEFAULT_LMSTUDIO_BASE_URL
+                  ? DEFAULT_LMSTUDIO_BASE_URL
                   : `Enter your ${provider === "google" ? "Google" : "OpenRouter"} API key`
               }
               className="flex-1"
@@ -259,10 +256,9 @@ export function ApiKeyManager({
               <>
                 {lmstudioDirectFetch ? (
                   <>
-                    Direct Browser Fetch works best through the local proxy at{" "}
-                    <code className="text-xs">{DEFAULT_LMSTUDIO_PROXY_URL}</code>.
-                    It forwards to LM Studio at{" "}
+                    Direct Browser Fetch calls LM Studio directly at{" "}
                     <code className="text-xs">{DEFAULT_LMSTUDIO_BASE_URL}</code>.
+                    LM Studio must allow browser CORS/PNA requests from the deployed site.
                   </>
                 ) : (
                   <>
