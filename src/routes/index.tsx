@@ -218,6 +218,7 @@ function App() {
                 googleApiKey={googleApiKey}
                 openRouterApiKey={openRouterApiKey}
                 lmstudioBaseUrl={lmstudioBaseUrl}
+                lmstudioDirectFetch={lmstudioDirectFetch}
                 onSaveGoogleKey={saveGoogleApiKey}
                 onSaveOpenRouterKey={saveOpenRouterApiKey}
                 onSaveLmstudioBaseUrl={saveLmstudioBaseUrl}
@@ -290,7 +291,7 @@ function App() {
                           Direct Browser Fetch
                         </label>
                         <span className="text-xs text-muted-foreground">
-                          (bypass server proxy — run <code className="text-xs bg-muted px-1 rounded">node local-proxy.mjs</code>)
+                          (bypass server proxy — run <code className="text-xs bg-muted px-1 rounded">bun run proxy</code> and use <code className="text-xs bg-muted px-1 rounded">http://localhost:3001/v1</code>)
                         </span>
                       </div>
                     </>

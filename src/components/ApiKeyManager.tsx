@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { testLmStudioConnection, sendChatMessage } from "../utils/lmStudio";
+import {
+  DEFAULT_LMSTUDIO_BASE_URL,
+  testLmStudioConnection,
+  sendChatMessage,
+} from "../utils/lmStudio";
+import { DEFAULT_LMSTUDIO_PROXY_URL } from "../utils/lmStudioDirect";
 
 export type Provider = "google" | "openrouter" | "lmstudio";
 
@@ -21,6 +26,7 @@ interface ApiKeyManagerProps {
   googleApiKey: string;
   openRouterApiKey: string;
   lmstudioBaseUrl: string;
+  lmstudioDirectFetch: boolean;
   onSaveGoogleKey: (key: string) => void;
   onSaveOpenRouterKey: (key: string) => void;
   onSaveLmstudioBaseUrl: (url: string) => void;
@@ -32,6 +38,7 @@ export function ApiKeyManager({
   googleApiKey,
   openRouterApiKey,
   lmstudioBaseUrl,
+  lmstudioDirectFetch,
   onSaveGoogleKey,
   onSaveOpenRouterKey,
   onSaveLmstudioBaseUrl,
@@ -184,7 +191,9 @@ export function ApiKeyManager({
               }
               placeholder={
                 provider === "lmstudio"
-                  ? "http://localhost:1234/v1"
+                  ? lmstudioDirectFetch
+                    ? DEFAULT_LMSTUDIO_PROXY_URL
+                    : DEFAULT_LMSTUDIO_BASE_URL
                   : `Enter your ${provider === "google" ? "Google" : "OpenRouter"} API key`
               }
               className="flex-1"
@@ -248,8 +257,19 @@ export function ApiKeyManager({
               </>
             ) : (
               <>
-                Enter the URL of your local LM Studio server. Default:{" "}
-                <code className="text-xs">http://localhost:1234/v1</code>
+                {lmstudioDirectFetch ? (
+                  <>
+                    Direct Browser Fetch works best through the local proxy at{" "}
+                    <code className="text-xs">{DEFAULT_LMSTUDIO_PROXY_URL}</code>.
+                    It forwards to LM Studio at{" "}
+                    <code className="text-xs">{DEFAULT_LMSTUDIO_BASE_URL}</code>.
+                  </>
+                ) : (
+                  <>
+                    Use your LM Studio server URL. Default:{" "}
+                    <code className="text-xs">{DEFAULT_LMSTUDIO_BASE_URL}</code>.
+                  </>
+                )}
               </>
             )}
           </p>
