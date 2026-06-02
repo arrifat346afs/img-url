@@ -18,6 +18,11 @@ import { usePromptGeneration } from '../hooks/usePromptGeneration'
 import { generateOpenRouterPrompt, FREE_MODEL_RATE_LIMIT } from '../utils/openRouter'
 import { generateLMStudioPrompt, LMSTUDIO_RATE_LIMIT, DEFAULT_LMSTUDIO_BASE_URL } from '../utils/lmStudio'
 import { generatePromptForImage, GeneratePromptOptions, RateLimitConfig } from '../utils/gemini'
+import {
+  clampLmstudioFastModeConcurrency,
+  LMSTUDIO_FAST_MODE_MAX_CONCURRENCY,
+  LMSTUDIO_FAST_MODE_MIN_CONCURRENCY,
+} from '../utils/lmStudioFastMode'
 
 // shadcn/ui components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,6 +69,7 @@ function App() {
   const [isFreeModel, setIsFreeModel] = useState(false)
   const [delaySeconds, setDelaySeconds] = useState(2)
   const [lmstudioFastMode, setLmstudioFastMode] = useState(false)
+  const [lmstudioMaxConcurrency, setLmstudioMaxConcurrency] = useState(LMSTUDIO_FAST_MODE_MAX_CONCURRENCY)
 
   useEffect(() => {
     if (provider === 'google') {
@@ -176,7 +182,7 @@ function App() {
 
     // Use parallel mode for LM Studio fast mode
     if (provider === 'lmstudio' && lmstudioFastMode) {
-      await generatePromptsParallel(urls, apiKey, selectedModel, generatorFn!, { maxConcurrency: 5 })
+      await generatePromptsParallel(urls, apiKey, selectedModel, generatorFn!, { maxConcurrency: clampLmstudioFastModeConcurrency(lmstudioMaxConcurrency) })
     } else {
       // Use sequential mode with rate limiting
       const promptOptions: { rateLimitConfig?: RateLimitConfig; delayBetweenRequestsMs: number } = {
@@ -248,6 +254,30 @@ function App() {
                         </label>
                         <span className="text-xs text-muted-foreground">(no rate limiting)</span>
                       </div>
+                      {lmstudioFastMode && (
+                        <div className="max-w-xs space-y-2 pl-6">
+                          <div className="flex items-center justify-between gap-4">
+                            <label htmlFor="parallelRequests" className="text-sm font-medium">
+                              Parallel requests
+                            </label>
+                            <span className="text-sm text-muted-foreground">{lmstudioMaxConcurrency}</span>
+                          </div>
+                          <input
+                            id="parallelRequests"
+                            type="range"
+                            min={LMSTUDIO_FAST_MODE_MIN_CONCURRENCY}
+                            max={LMSTUDIO_FAST_MODE_MAX_CONCURRENCY}
+                            step="1"
+                            value={lmstudioMaxConcurrency}
+                            onChange={(e) => setLmstudioMaxConcurrency(clampLmstudioFastModeConcurrency(Number(e.target.value)))}
+                            className="h-2 w-full cursor-pointer accent-primary"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{LMSTUDIO_FAST_MODE_MIN_CONCURRENCY}</span>
+                            <span>{LMSTUDIO_FAST_MODE_MAX_CONCURRENCY}</span>
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2">
                         <input
                           type="checkbox"
