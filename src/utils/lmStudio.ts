@@ -3,6 +3,7 @@
  */
 
 import { RateLimitConfig, imageToBase64, GeneratePromptOptions } from './gemini'
+import { ANALYZE_IMAGE_PROMPT } from './promptTemplate'
 import { lmStudioProxy } from './lmStudioProxy'
 import {
   sendChatMessageDirect,
@@ -175,26 +176,7 @@ export async function generateLMStudioPrompt(
                 content: [
                     {
                         type: 'text',
-                        text: `Analyze this image and create an effective prompt for AI image generation tools like Midjourney, DALL-E, or Stable Diffusion.
-
-Focus on these key elements (keep descriptions concise):
-1. Subject - who or what is the main focus
-2. Art style/medium - photography, illustration, digital art, 3D render, etc.
-3. Lighting - key light source and mood it creates
-4. Colors - dominant color palette
-5. Composition - camera angle, framing, perspective
-6. Atmosphere/mood - emotional tone
-7. Key details - only the most important visual elements that define the image
-
-Then add relevant style keywords at the end as comma-separated modifiers (e.g., cinematic lighting, soft focus, detailed, vibrant colors).
-
-CRITICAL OUTPUT INSTRUCTIONS:
-- Return ONLY the prompt text.
-- Do NOT use markdown (no bold **, no italics *, no headers ###).
-- Do NOT include any introductory text like "Here is the prompt" or "Sure".
-- Do NOT include any concluding text.
-- Do NOT add aspect ratio notation like --ar 16:9 or similar.
-- Just the raw prompt string.`
+                        text: ANALYZE_IMAGE_PROMPT
                     },
                     {
                         type: 'image_url',
